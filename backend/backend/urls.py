@@ -7,7 +7,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 
     # Banking API — all endpoints live under /api/
-    path('api/', include('banking.urls')),
+    path('api/', include('core.urls')),
 
     # JWT token refresh (optional — for long-lived sessions)
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
