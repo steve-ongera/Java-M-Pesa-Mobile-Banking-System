@@ -53,7 +53,7 @@ mpesa-banking/
 
 ---
 
-## 🚀 Backend Setup (Django)
+##  Backend Setup (Django)
 
 ### 1. Clone and set up virtual environment
 
@@ -88,7 +88,7 @@ Server runs at: `http://127.0.0.1:8000`
 
 ---
 
-## 🗄️ Django Models (`banking/models.py`)
+##  Django Models (`banking/models.py`)
 
 ```python
 from django.db import models
@@ -280,7 +280,7 @@ def send_money(request):
 
 ---
 
-## ☕ Java Console Frontend Setup
+##  Java Console Frontend Setup
 
 ### 1. Dependencies (`pom.xml`)
 
@@ -512,7 +512,7 @@ public class Main {
 
 ---
 
-## 🖥️ Running the Java Frontend
+##  Running the Java Frontend
 
 ```bash
 cd frontend
@@ -524,12 +524,12 @@ java -jar target/mpesa-console-1.0.jar
 
 ```
 ================================
-   📲 M-PESA BANKING SYSTEM
+    M-PESA BANKING SYSTEM
 ================================
 
 Phone number: 0712345678
 PIN: ****
-✅ Welcome, John Doe!
+ Welcome, John Doe!
 
 --- MAIN MENU ---
 1. Check Balance
@@ -538,12 +538,12 @@ PIN: ****
 4. Logout
 Select option: 1
 
-💰 Balance: KES 5420.00
+ Balance: KES 5420.00
 ```
 
 ---
 
-## 🔐 Security Notes
+##  Security Notes
 
 - Pins are stored as **bcrypt hashes** — never plain text
 - All banking endpoints require a **JWT Bearer token**
@@ -559,7 +559,7 @@ java.util.Arrays.fill(pinChars, ' '); // clear from memory
 
 ---
 
-## 🌍 Django Settings — Key Config
+##  Django Settings — Key Config
 
 ```python
 # settings.py
@@ -593,7 +593,7 @@ SIMPLE_JWT = {
 
 ---
 
-## 🧪 Quick Test with curl
+##  Quick Test with curl
 
 ```bash
 # Register
@@ -613,7 +613,7 @@ curl http://localhost:8000/api/account/balance/ \
 
 ---
 
-## 📌 Future Improvements
+##  Future Improvements
 
 - Add M-Pesa STK Push integration (Safaricom Daraja API)
 - Add SMS notifications via Africa's Talking API
@@ -623,6 +623,6 @@ curl http://localhost:8000/api/account/balance/ \
 
 ---
 
-## 📄 License
+##  License
 
 MIT License — free to use and extend for learning purposes.
