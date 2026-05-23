@@ -30,7 +30,7 @@ INSTALLED_APPS = [
     'corsheaders',
 
     # Local
-    'core',
+    'banking',
 ]
 
 
@@ -48,7 +48,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'backend.urls'
+ROOT_URLCONF = 'mpesa_backend.urls'
 
 TEMPLATES = [
     {
@@ -66,7 +66,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'backend.wsgi.application'
+WSGI_APPLICATION = 'mpesa_backend.wsgi.application'
 
 
 # ─────────────────────────────────────────────
@@ -83,8 +83,8 @@ DATABASES = {
 # DATABASES = {
 #     'default': {
 #         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'backend_db',
-#         'USER': 'backend_user',
+#         'NAME': 'mpesa_db',
+#         'USER': 'mpesa_user',
 #         'PASSWORD': 'your_password',
 #         'HOST': 'localhost',
 #         'PORT': '5432',
