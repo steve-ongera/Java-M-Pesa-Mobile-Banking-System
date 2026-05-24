@@ -25,11 +25,6 @@ from .utils import generate_reference, get_user_from_token, token_for_user
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):
-    """
-    Register a new user account.
-    POST /api/auth/register/
-    Body: { phone_number, full_name, pin }
-    """
     serializer = RegisterSerializer(data=request.data)
     if serializer.is_valid():
         user = serializer.save()
@@ -48,12 +43,6 @@ def register(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login(request):
-    """
-    Login with phone number and PIN.
-    POST /api/auth/login/
-    Body: { phone_number, pin }
-    Returns: JWT access token
-    """
     serializer = LoginSerializer(data=request.data)
     if serializer.is_valid():
         user  = serializer.validated_data['user']
@@ -67,17 +56,18 @@ def login(request):
             }
         }, status=status.HTTP_200_OK)
 
-    return Response({'error': list(serializer.errors.values())[0][0]},
-                    status=status.HTTP_401_UNAUTHORIZED)
+    # Flatten first error message for the Java client
+    errors = serializer.errors
+    if 'non_field_errors' in errors:
+        msg = errors['non_field_errors'][0]
+    else:
+        msg = list(errors.values())[0][0]
+    return Response({'error': str(msg)}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def logout(request):
-    """
-    Logout — client must discard the token.
-    POST /api/auth/logout/
-    """
     return Response({'message': 'Logged out successfully.'}, status=status.HTTP_200_OK)
 
 
@@ -88,10 +78,6 @@ def logout(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def profile(request):
-    """
-    Get authenticated user profile.
-    GET /api/account/profile/
-    """
     user = get_user_from_token(request)
     if not user:
         return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -103,10 +89,6 @@ def profile(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def balance(request):
-    """
-    Get current account balance.
-    GET /api/account/balance/
-    """
     user = get_user_from_token(request)
     if not user:
         return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -121,11 +103,6 @@ def balance(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def send_money(request):
-    """
-    Send money to another user.
-    POST /api/account/send/
-    Body: { recipient_phone, amount, description }
-    """
     sender = get_user_from_token(request)
     if not sender:
         return Response({'error': 'Sender not found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -139,12 +116,10 @@ def send_money(request):
     amount          = Decimal(str(serializer.validated_data['amount']))
     description     = serializer.validated_data.get('description', '')
 
-    # Prevent sending to self
     if sender.phone_number == recipient_phone:
         return Response({'error': 'Cannot send money to yourself.'},
                         status=status.HTTP_400_BAD_REQUEST)
 
-    # Check balance
     if sender.balance < amount:
         return Response({
             'error': f'Insufficient balance. Your balance is KES {sender.balance}.'
@@ -155,28 +130,24 @@ def send_money(request):
     except UserAccount.DoesNotExist:
         return Response({'error': 'Recipient not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-    # Atomic transfer
     with db_transaction.atomic():
-        sender.balance   -= amount
+        sender.balance    -= amount
         recipient.balance += amount
-        sender.save(update_fields=['balance', 'updated_at'])
-        recipient.save(update_fields=['balance', 'updated_at'])
+        # Only save fields that exist on the model
+        sender.save(update_fields=['balance'])
+        recipient.save(update_fields=['balance'])
 
         ref = generate_reference()
 
-        # Debit record for sender
         Transaction.objects.create(
             sender=sender, receiver=recipient,
             amount=amount, transaction_type='SEND',
-            description=description, reference=ref, status='COMPLETED',
+            description=description, reference=ref,
         )
-        # Credit record for receiver (separate reference)
         Transaction.objects.create(
             sender=sender, receiver=recipient,
             amount=amount, transaction_type='RECEIVE',
-            description=description,
-            reference=generate_reference(),
-            status='COMPLETED',
+            description=description, reference=generate_reference(),
         )
 
     return Response({
@@ -192,31 +163,23 @@ def send_money(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def statement(request):
-    """
-    Get mini statement (last 20 transactions).
-    GET /api/account/statement/
-    Optional query param: ?limit=10
-    """
-    user  = get_user_from_token(request)
+    user = get_user_from_token(request)
     if not user:
         return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
 
     limit = int(request.query_params.get('limit', 20))
-    limit = min(limit, 50)  # cap at 50
+    limit = min(limit, 50)
 
-    txns = Transaction.objects.filter(
-        sender=user
-    ) | Transaction.objects.filter(
-        receiver=user
-    )
-    txns = txns.order_by('-timestamp')[:limit]
+    # Combine sent + received, deduplicate, sort
+    txns = (
+        Transaction.objects.filter(sender=user) |
+        Transaction.objects.filter(receiver=user)
+    ).distinct().order_by('-timestamp')[:limit]
 
-    serializer = TransactionSerializer(
-        txns, many=True, context={'request_user': user}
-    )
+    serializer = TransactionSerializer(txns, many=True, context={'request_user': user})
     return Response({
         'account':      user.phone_number,
-        'count':        txns.count(),
+        'count':        len(serializer.data),
         'transactions': serializer.data,
     }, status=status.HTTP_200_OK)
 
@@ -224,14 +187,16 @@ def statement(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def deposit(request):
-    """
-    Deposit funds into account (simulated).
-    POST /api/account/deposit/
-    Body: { amount, description }
-    """
-    user   = get_user_from_token(request)
-    amount = Decimal(str(request.data.get('amount', 0)))
-    desc   = request.data.get('description', 'Deposit')
+    user = get_user_from_token(request)
+    if not user:
+        return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        amount = Decimal(str(request.data.get('amount', 0)))
+    except Exception:
+        return Response({'error': 'Invalid amount.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    desc = request.data.get('description', 'Deposit')
 
     if amount <= 0:
         return Response({'error': 'Amount must be greater than 0.'},
@@ -239,13 +204,13 @@ def deposit(request):
 
     with db_transaction.atomic():
         user.balance += amount
-        user.save(update_fields=['balance', 'updated_at'])
+        user.save(update_fields=['balance'])
 
         ref = generate_reference()
         Transaction.objects.create(
             sender=None, receiver=user,
             amount=amount, transaction_type='DEPOSIT',
-            description=desc, reference=ref, status='COMPLETED',
+            description=desc, reference=ref,
         )
 
     return Response({
